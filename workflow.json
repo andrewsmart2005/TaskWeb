@@ -1,0 +1,56 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "text": "Define the goal",
+      "x": 80,
+      "y": 80,
+      "done": true
+    },
+    {
+      "id": 2,
+      "text": "Outline steps",
+      "x": 340,
+      "y": 200,
+      "done": false
+    },
+    {
+      "id": 3,
+      "text": "Build first draft",
+      "x": 748,
+      "y": 103,
+      "done": false
+    },
+    {
+      "id": 4,
+      "text": "Review and polish",
+      "x": 716,
+      "y": 320,
+      "done": false
+    },
+    {
+      "id": 5,
+      "text": "pooop",
+      "x": 1100.8000000000002,
+      "y": 231.5,
+      "done": false
+    }
+  ],
+  "edges": [
+    {
+      "id": 1,
+      "from": 1,
+      "to": 2
+    },
+    {
+      "id": 2,
+      "from": 2,
+      "to": 3
+    },
+    {
+      "id": 3,
+      "from": 3,
+      "to": 4
+    }
+  ]
+}

@@ -353,7 +353,9 @@
 
     <script>
       const STORAGE_KEY = "workflow-tasks-v1";
+      const API_URL = "/api/workflow";
       const state = { tasks: [], edges: [] };
+      let useServer = false;
       let selectedId = null;
       let linking = null;
 
@@ -380,25 +382,76 @@
         ]
       };
 
-      function save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      function saveLocal() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch {
+          // Ignore localStorage failures (private mode, file:// restrictions).
+        }
       }
 
-      function load() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-          state.tasks = sample.tasks.map((t) => ({ ...t }));
-          state.edges = sample.edges.map((e) => ({ ...e }));
-          save();
-          return;
-        }
+      async function saveServer() {
         try {
-          const data = JSON.parse(raw);
-          state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
-          state.edges = Array.isArray(data.edges) ? data.edges : [];
+          await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(state)
+          });
         } catch {
-          state.tasks = sample.tasks.map((t) => ({ ...t }));
-          state.edges = sample.edges.map((e) => ({ ...e }));
+          useServer = false;
+        }
+      }
+
+      function save() {
+        saveLocal();
+        if (useServer) {
+          void saveServer();
+        }
+      }
+
+      function readLocal() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            return null;
+          }
+          const data = JSON.parse(raw);
+          if (!Array.isArray(data.tasks) || !Array.isArray(data.edges)) {
+            return null;
+          }
+          return data;
+        } catch {
+          return null;
+        }
+      }
+
+      function applyData(data) {
+        state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        state.edges = Array.isArray(data.edges) ? data.edges : [];
+      }
+
+      async function load() {
+        const localData =
+          readLocal() || {
+            tasks: sample.tasks.map((t) => ({ ...t })),
+            edges: sample.edges.map((e) => ({ ...e }))
+          };
+
+        try {
+          const response = await fetch(API_URL, { cache: "no-store" });
+          useServer = true;
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.tasks) && Array.isArray(data.edges)) {
+              applyData(data);
+              return;
+            }
+          }
+          applyData(localData);
+          save();
+        } catch {
+          useServer = false;
+          applyData(localData);
         }
       }
 
@@ -762,8 +815,7 @@
         renderEdges();
       });
 
-      load();
-      renderAll();
+      load().then(renderAll);
     </script>
   </body>
 </html>

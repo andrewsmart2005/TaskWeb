@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workflow Tasks</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap");
+
+      :root {
+        --bg-1: #f6efe3;
+        --bg-2: #e5f0e7;
+        --ink: #1f2a33;
+        --muted: #4f5d6b;
+        --accent: #0f766e;
+        --accent-2: #e07a5f;
+        --card: #fff8f1;
+        --card-2: #fef2e4;
+        --line: #2f3a43;
+        --lock: #c9715a;
+        --ready: #1d8a74;
+        --shadow: 0 10px 30px rgba(31, 42, 51, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Space Grotesk", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(800px 500px at 10% 10%, rgba(224, 122, 95, 0.18), transparent 60%),
+          radial-gradient(700px 520px at 90% 10%, rgba(15, 118, 110, 0.16), transparent 60%),
+          linear-gradient(120deg, var(--bg-1), var(--bg-2));
+        min-height: 100vh;
+        animation: fadeIn 400ms ease;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image: repeating-linear-gradient(
+          135deg,
+          rgba(31, 42, 51, 0.04),
+          rgba(31, 42, 51, 0.04) 1px,
+          transparent 1px,
+          transparent 12px
+        );
+        opacity: 0.6;
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px clamp(16px, 4vw, 32px) 12px;
+      }
+
+      .title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(24px, 3vw, 36px);
+        letter-spacing: 0.5px;
+      }
+
+      .subtitle {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--ink);
+        background: #fff;
+        box-shadow: 0 6px 16px rgba(31, 42, 51, 0.12);
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(31, 42, 51, 0.16);
+      }
+
+      button.primary {
+        background: linear-gradient(120deg, var(--accent), #1a7f71);
+        color: #fff;
+      }
+
+      #stats {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      #stage {
+        position: relative;
+        height: calc(100vh - 140px);
+        margin: 0 clamp(16px, 4vw, 32px) 24px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.4);
+        box-shadow: inset 0 0 0 1px rgba(31, 42, 51, 0.08);
+        overflow: hidden;
+      }
+
+      #links {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #canvas {
+        position: absolute;
+        inset: 0;
+      }
+
+      .task {
+        position: absolute;
+        min-width: 180px;
+        max-width: 240px;
+        padding: 14px 14px 12px;
+        background: var(--card);
+        border: 1px solid rgba(31, 42, 51, 0.12);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+        animation: rise 220ms ease;
+      }
+
+      .task.selected {
+        outline: 2px solid rgba(15, 118, 110, 0.6);
+        box-shadow: 0 16px 30px rgba(15, 118, 110, 0.2);
+      }
+
+      .task.done {
+        background: #f0f7f4;
+      }
+
+      .task.locked {
+        background: #f7efe9;
+        opacity: 0.78;
+      }
+
+      .task-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .check {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 2px solid rgba(31, 42, 51, 0.4);
+        background: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .task.done .check {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .task.done .check::after {
+        content: "";
+        width: 12px;
+        height: 8px;
+        border-left: 3px solid #fff;
+        border-bottom: 3px solid #fff;
+        transform: rotate(-45deg);
+      }
+
+      .task.locked .check {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .title {
+        font-size: 15px;
+        font-weight: 600;
+        outline: none;
+        line-height: 1.3;
+      }
+
+      .title[contenteditable="true"]:focus {
+        outline: 2px dashed rgba(31, 42, 51, 0.25);
+        outline-offset: 4px;
+      }
+
+      .task-foot {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .status {
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(31, 42, 51, 0.08);
+      }
+
+      .status.ready {
+        color: var(--ready);
+        background: rgba(29, 138, 116, 0.12);
+      }
+
+      .status.locked {
+        color: var(--lock);
+        background: rgba(201, 113, 90, 0.15);
+      }
+
+      .port {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--accent-2);
+        background: #fff;
+        cursor: crosshair;
+        position: relative;
+      }
+
+      .port::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: var(--accent-2);
+        opacity: 0.4;
+      }
+
+      #hint {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 0 clamp(16px, 4vw, 32px) 18px;
+      }
+
+      .link {
+        stroke: var(--line);
+        stroke-width: 2.2;
+        fill: none;
+        marker-end: url(#arrowhead);
+      }
+
+      .link.blocked {
+        stroke: rgba(31, 42, 51, 0.3);
+        stroke-dasharray: 6 4;
+      }
+
+      .link.done {
+        stroke: var(--accent);
+      }
+
+      .link-hit {
+        stroke: transparent;
+        stroke-width: 14;
+        fill: none;
+        cursor: pointer;
+      }
+
+      #temp-link {
+        stroke: var(--accent-2);
+        stroke-width: 2;
+        stroke-dasharray: 5 4;
+        fill: none;
+        pointer-events: none;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes rise {
+        from {
+          transform: translateY(6px);
+          opacity: 0.6;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 720px) {
+        #stage {
+          height: calc(100vh - 180px);
+        }
+
+        .task {
+          min-width: 160px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="title-block">
+        <h1>Workflow Tasks</h1>
+        <div class="subtitle">Drag nodes. Link with the dot. Unlock by finishing upstream tasks.</div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="add-task">Add task</button>
+        <button id="delete-task">Delete selected</button>
+        <button id="reset-data">Reset</button>
+        <div id="stats">0 tasks</div>
+      </div>
+    </header>
+
+    <div id="stage">
+      <svg id="links" aria-hidden="true"></svg>
+      <div id="canvas"></div>
+    </div>
+
+    <div id="hint">
+      Click a task to select. Drag the coral dot to create a dependency. Click a line to delete it.
+    </div>
+
+    <script>
+      const STORAGE_KEY = "workflow-tasks-v1";
+      const state = { tasks: [], edges: [] };
+      let selectedId = null;
+      let linking = null;
+
+      const stage = document.getElementById("stage");
+      const canvas = document.getElementById("canvas");
+      const svg = document.getElementById("links");
+      const stats = document.getElementById("stats");
+
+      const addButton = document.getElementById("add-task");
+      const deleteButton = document.getElementById("delete-task");
+      const resetButton = document.getElementById("reset-data");
+
+      const sample = {
+        tasks: [
+          { id: 1, text: "Define the goal", x: 80, y: 80, done: true },
+          { id: 2, text: "Outline steps", x: 340, y: 200, done: false },
+          { id: 3, text: "Build first draft", x: 620, y: 120, done: false },
+          { id: 4, text: "Review and polish", x: 620, y: 320, done: false }
+        ],
+        edges: [
+          { id: 1, from: 1, to: 2 },
+          { id: 2, from: 2, to: 3 },
+          { id: 3, from: 3, to: 4 }
+        ]
+      };
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function load() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          state.tasks = sample.tasks.map((t) => ({ ...t }));
+          state.edges = sample.edges.map((e) => ({ ...e }));
+          save();
+          return;
+        }
+        try {
+          const data = JSON.parse(raw);
+          state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+          state.edges = Array.isArray(data.edges) ? data.edges : [];
+        } catch {
+          state.tasks = sample.tasks.map((t) => ({ ...t }));
+          state.edges = sample.edges.map((e) => ({ ...e }));
+        }
+      }
+
+      function nextId(list) {
+        return list.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+      }
+
+      function getTask(id) {
+        return state.tasks.find((task) => task.id === id);
+      }
+
+      function incomingEdges(taskId) {
+        return state.edges.filter((edge) => edge.to === taskId);
+      }
+
+      function isLocked(task) {
+        const incoming = incomingEdges(task.id);
+        if (!incoming.length) {
+          return false;
+        }
+        return incoming.some((edge) => {
+          const from = getTask(edge.from);
+          return !from || !from.done;
+        });
+      }
+
+      function updateStats() {
+        const total = state.tasks.length;
+        const done = state.tasks.filter((t) => t.done).length;
+        const locked = state.tasks.filter((t) => isLocked(t)).length;
+        stats.textContent = `${total} tasks | ${done} done | ${locked} locked`;
+      }
+
+      function createTaskElement(task) {
+        const el = document.createElement("div");
+        el.className = "task";
+        el.dataset.id = String(task.id);
+        el.style.left = `${task.x}px`;
+        el.style.top = `${task.y}px`;
+        if (task.done) {
+          el.classList.add("done");
+        }
+        if (isLocked(task)) {
+          el.classList.add("locked");
+        }
+        if (task.id === selectedId) {
+          el.classList.add("selected");
+        }
+
+        const head = document.createElement("div");
+        head.className = "task-head";
+
+        const check = document.createElement("button");
+        check.type = "button";
+        check.className = "check";
+        check.setAttribute("aria-pressed", task.done ? "true" : "false");
+        check.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (isLocked(task)) {
+            return;
+          }
+          task.done = !task.done;
+          renderAll();
+        });
+
+        const title = document.createElement("div");
+        title.className = "title";
+        title.contentEditable = "true";
+        title.spellcheck = false;
+        title.textContent = task.text;
+        title.addEventListener("blur", () => {
+          const text = title.textContent.trim();
+          task.text = text || "Untitled task";
+          renderAll();
+        });
+        title.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            title.blur();
+          }
+        });
+
+        head.appendChild(check);
+        head.appendChild(title);
+
+        const foot = document.createElement("div");
+        foot.className = "task-foot";
+
+        const status = document.createElement("span");
+        status.className = "status";
+        if (isLocked(task)) {
+          status.textContent = "Locked";
+          status.classList.add("locked");
+        } else if (task.done) {
+          status.textContent = "Done";
+          status.classList.add("ready");
+        } else {
+          status.textContent = "Ready";
+          status.classList.add("ready");
+        }
+
+        const port = document.createElement("button");
+        port.className = "port";
+        port.type = "button";
+        port.title = "Drag to link";
+        port.addEventListener("pointerdown", (event) => {
+          event.stopPropagation();
+          startLink(event, task.id);
+        });
+
+        foot.appendChild(status);
+        foot.appendChild(port);
+
+        el.appendChild(head);
+        el.appendChild(foot);
+
+        el.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) {
+            return;
+          }
+          if (event.target.closest(".check") || event.target.closest(".port") || event.target.closest(".title")) {
+            return;
+          }
+          startDrag(event, task, el);
+        });
+
+        el.addEventListener("click", () => {
+          selectedId = task.id;
+          updateSelection();
+        });
+
+        return el;
+      }
+
+      function updateSelection() {
+        document.querySelectorAll(".task").forEach((node) => {
+          const id = Number(node.dataset.id);
+          node.classList.toggle("selected", id === selectedId);
+        });
+      }
+
+      function renderTasks() {
+        canvas.innerHTML = "";
+        state.tasks.forEach((task) => {
+          canvas.appendChild(createTaskElement(task));
+        });
+      }
+
+      function getAnchor(taskId, side) {
+        const taskEl = document.querySelector(`.task[data-id="${taskId}"]`);
+        if (!taskEl) {
+          return null;
+        }
+        const rect = taskEl.getBoundingClientRect();
+        const stageRect = stage.getBoundingClientRect();
+        const x = side === "from" ? rect.right - stageRect.left - 8 : rect.left - stageRect.left + 6;
+        const y = rect.top - stageRect.top + rect.height * 0.5;
+        return { x, y };
+      }
+
+      function drawPath(from, to) {
+        const dx = Math.max(80, Math.abs(to.x - from.x) * 0.4);
+        const c1x = from.x + dx;
+        const c2x = to.x - dx;
+        return `M ${from.x} ${from.y} C ${c1x} ${from.y} ${c2x} ${to.y} ${to.x} ${to.y}`;
+      }
+
+      function renderEdges() {
+        svg.innerHTML = "";
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        marker.setAttribute("id", "arrowhead");
+        marker.setAttribute("markerWidth", "10");
+        marker.setAttribute("markerHeight", "8");
+        marker.setAttribute("refX", "8");
+        marker.setAttribute("refY", "4");
+        marker.setAttribute("orient", "auto");
+        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        arrow.setAttribute("d", "M 0 0 L 10 4 L 0 8 z");
+        arrow.setAttribute("fill", "currentColor");
+        marker.appendChild(arrow);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        state.edges.forEach((edge) => {
+          const from = getAnchor(edge.from, "from");
+          const to = getAnchor(edge.to, "to");
+          if (!from || !to) {
+            return;
+          }
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const toTask = getTask(edge.to);
+          const fromTask = getTask(edge.from);
+
+          path.setAttribute("d", drawPath(from, to));
+          path.setAttribute("class", "link");
+          if (toTask && isLocked(toTask)) {
+            path.classList.add("blocked");
+          }
+          if (fromTask && fromTask.done) {
+            path.classList.add("done");
+          }
+          path.dataset.edgeId = String(edge.id);
+          path.style.color = "var(--line)";
+
+          hit.setAttribute("d", drawPath(from, to));
+          hit.setAttribute("class", "link-hit");
+          hit.dataset.edgeId = String(edge.id);
+
+          svg.appendChild(path);
+          svg.appendChild(hit);
+        });
+
+        if (linking && linking.path) {
+          svg.appendChild(linking.path);
+        }
+      }
+
+      function renderAll() {
+        renderTasks();
+        renderEdges();
+        updateSelection();
+        updateStats();
+        save();
+      }
+
+      function addTask() {
+        const rect = stage.getBoundingClientRect();
+        const task = {
+          id: nextId(state.tasks),
+          text: "New task",
+          x: rect.width * 0.4,
+          y: rect.height * 0.3,
+          done: false
+        };
+        state.tasks.push(task);
+        selectedId = task.id;
+        renderAll();
+      }
+
+      function deleteSelected() {
+        if (!selectedId) {
+          return;
+        }
+        state.tasks = state.tasks.filter((t) => t.id !== selectedId);
+        state.edges = state.edges.filter((e) => e.from !== selectedId && e.to !== selectedId);
+        selectedId = null;
+        renderAll();
+      }
+
+      function resetData() {
+        if (!confirm("Reset all tasks and links?")) {
+          return;
+        }
+        state.tasks = sample.tasks.map((t) => ({ ...t }));
+        state.edges = sample.edges.map((e) => ({ ...e }));
+        selectedId = null;
+        renderAll();
+      }
+
+      function startDrag(event, task, el) {
+        event.preventDefault();
+        selectedId = task.id;
+        updateSelection();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originX = task.x;
+        const originY = task.y;
+
+        function onMove(moveEvent) {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          const bounds = stage.getBoundingClientRect();
+          const width = el.offsetWidth;
+          const height = el.offsetHeight;
+          task.x = Math.max(8, Math.min(originX + dx, bounds.width - width - 8));
+          task.y = Math.max(8, Math.min(originY + dy, bounds.height - height - 8));
+          el.style.left = `${task.x}px`;
+          el.style.top = `${task.y}px`;
+          renderEdges();
+        }
+
+        function onUp() {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          save();
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp, { once: true });
+      }
+
+      function startLink(event, fromId) {
+        event.preventDefault();
+        const from = getAnchor(fromId, "from");
+        if (!from) {
+          return;
+        }
+        const temp = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        temp.setAttribute("id", "temp-link");
+        linking = { fromId, path: temp };
+
+        function onMove(moveEvent) {
+          const stageRect = stage.getBoundingClientRect();
+          const to = {
+            x: moveEvent.clientX - stageRect.left,
+            y: moveEvent.clientY - stageRect.top
+          };
+          temp.setAttribute("d", drawPath(from, to));
+          renderEdges();
+        }
+
+        function onUp(upEvent) {
+          const target = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+          const taskEl = target && target.closest(".task");
+          if (taskEl) {
+            const toId = Number(taskEl.dataset.id);
+            if (toId && toId !== fromId) {
+              const exists = state.edges.some((edge) => edge.from === fromId && edge.to === toId);
+              if (!exists) {
+                state.edges.push({ id: nextId(state.edges), from: fromId, to: toId });
+              }
+            }
+          }
+          linking = null;
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          renderAll();
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp, { once: true });
+      }
+
+      svg.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof SVGPathElement)) {
+          return;
+        }
+        const edgeId = Number(target.dataset.edgeId);
+        if (!edgeId) {
+          return;
+        }
+        state.edges = state.edges.filter((edge) => edge.id !== edgeId);
+        renderAll();
+      });
+
+      addButton.addEventListener("click", addTask);
+      deleteButton.addEventListener("click", deleteSelected);
+      resetButton.addEventListener("click", resetData);
+
+      stage.addEventListener("click", (event) => {
+        if (event.target === stage || event.target === canvas) {
+          selectedId = null;
+          updateSelection();
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        renderEdges();
+      });
+
+      load();
+      renderAll();
+    </script>
+  </body>
+</html>

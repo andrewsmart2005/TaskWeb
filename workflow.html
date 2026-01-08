@@ -131,11 +131,14 @@
         inset: 0;
         width: 100%;
         height: 100%;
+        z-index: 1;
       }
 
       #canvas {
         position: absolute;
         inset: 0;
+        z-index: 2;
+        pointer-events: none;
       }
 
       .task {
@@ -149,6 +152,7 @@
         box-shadow: var(--shadow);
         transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
         animation: rise 220ms ease;
+        pointer-events: auto;
       }
 
       .task.selected {
@@ -282,11 +286,18 @@
         stroke: var(--accent);
       }
 
+      .link.selected {
+        stroke: var(--accent-2);
+        stroke-width: 3.2;
+        filter: drop-shadow(0 0 6px rgba(224, 122, 95, 0.55));
+      }
+
       .link-hit {
         stroke: transparent;
         stroke-width: 14;
         fill: none;
         cursor: pointer;
+        pointer-events: all;
       }
 
       #temp-link {
@@ -348,7 +359,7 @@
     </div>
 
     <div id="hint">
-      Click a task to select. Drag the coral dot to create a dependency. Click a line to delete it.
+      Click a task to select. Drag the coral dot to create a dependency. Click a line to select it, then press Delete.
     </div>
 
     <script>
@@ -357,6 +368,7 @@
       const state = { tasks: [], edges: [] };
       let useServer = false;
       let selectedId = null;
+      let selectedEdgeId = null;
       let linking = null;
 
       const stage = document.getElementById("stage");
@@ -580,6 +592,7 @@
 
         el.addEventListener("click", () => {
           selectedId = task.id;
+          selectedEdgeId = null;
           updateSelection();
         });
 
@@ -591,6 +604,17 @@
           const id = Number(node.dataset.id);
           node.classList.toggle("selected", id === selectedId);
         });
+        document.querySelectorAll(".link").forEach((node) => {
+          const id = Number(node.dataset.edgeId);
+          node.classList.toggle("selected", id === selectedEdgeId);
+        });
+      }
+
+      function selectEdge(edgeId) {
+        selectedEdgeId = edgeId;
+        selectedId = null;
+        renderEdges();
+        updateSelection();
       }
 
       function renderTasks() {
@@ -655,12 +679,23 @@
           if (fromTask && fromTask.done) {
             path.classList.add("done");
           }
+          if (edge.id === selectedEdgeId) {
+            path.classList.add("selected");
+          }
           path.dataset.edgeId = String(edge.id);
           path.style.color = "var(--line)";
+          path.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectEdge(edge.id);
+          });
 
           hit.setAttribute("d", drawPath(from, to));
           hit.setAttribute("class", "link-hit");
           hit.dataset.edgeId = String(edge.id);
+          hit.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectEdge(edge.id);
+          });
 
           svg.appendChild(path);
           svg.appendChild(hit);
@@ -690,6 +725,7 @@
         };
         state.tasks.push(task);
         selectedId = task.id;
+        selectedEdgeId = null;
         renderAll();
       }
 
@@ -700,6 +736,16 @@
         state.tasks = state.tasks.filter((t) => t.id !== selectedId);
         state.edges = state.edges.filter((e) => e.from !== selectedId && e.to !== selectedId);
         selectedId = null;
+        selectedEdgeId = null;
+        renderAll();
+      }
+
+      function deleteSelectedEdge() {
+        if (!selectedEdgeId) {
+          return;
+        }
+        state.edges = state.edges.filter((edge) => edge.id !== selectedEdgeId);
+        selectedEdgeId = null;
         renderAll();
       }
 
@@ -710,12 +756,14 @@
         state.tasks = sample.tasks.map((t) => ({ ...t }));
         state.edges = sample.edges.map((e) => ({ ...e }));
         selectedId = null;
+        selectedEdgeId = null;
         renderAll();
       }
 
       function startDrag(event, task, el) {
         event.preventDefault();
         selectedId = task.id;
+        selectedEdgeId = null;
         updateSelection();
         const startX = event.clientX;
         const startY = event.clientY;
@@ -788,27 +836,51 @@
       }
 
       svg.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof SVGPathElement)) {
+        if (!(event.target instanceof Element)) {
           return;
         }
-        const edgeId = Number(target.dataset.edgeId);
+        const path = event.target.closest("[data-edge-id]");
+        if (!path) {
+          return;
+        }
+        const edgeId = Number(path.dataset.edgeId);
         if (!edgeId) {
           return;
         }
-        state.edges = state.edges.filter((edge) => edge.id !== edgeId);
-        renderAll();
+        selectEdge(edgeId);
       });
 
       addButton.addEventListener("click", addTask);
-      deleteButton.addEventListener("click", deleteSelected);
+      deleteButton.addEventListener("click", () => {
+        if (selectedEdgeId) {
+          deleteSelectedEdge();
+          return;
+        }
+        deleteSelected();
+      });
       resetButton.addEventListener("click", resetData);
 
       stage.addEventListener("click", (event) => {
         if (event.target === stage || event.target === canvas) {
           selectedId = null;
+          selectedEdgeId = null;
           updateSelection();
         }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key !== "Delete" && event.key !== "Backspace") {
+          return;
+        }
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.isContentEditable)) {
+          return;
+        }
+        if (selectedEdgeId) {
+          deleteSelectedEdge();
+          return;
+        }
+        deleteSelected();
       });
 
       window.addEventListener("resize", () => {
